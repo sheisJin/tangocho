@@ -982,14 +982,159 @@ function QuizView({ pool, all, onMark }) {
 }
 
 /* ================= 사전 ================= */
+
+/**
+ * 단어 상세 시트
+ *
+ * 단어카드와 같은 배치(별점 · 한자 · 요미가나 · 뜻 · 예문)를 쓰되,
+ * 학습 흐름을 건드리지 않도록 사전 안에서 열고 닫습니다.
+ * 여기에는 카드에 없는 품사와 학습 기록도 함께 보여줍니다.
+ */
+function WordSheet({ word, rate, onDelete, onClose }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{ backgroundColor: "rgba(20,24,40,.45)", zIndex: 60 }}
+      onClick={onClose}
+    >
+      <div className="flex-1" />
+      <div
+        className="rounded-t-2xl px-5 pb-8 pt-4"
+        style={{ backgroundColor: C.bg, maxHeight: "88vh", overflowY: "auto", animation: "pop 200ms ease both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 style={{ fontSize: 19, fontWeight: 700, color: C.ink }}>단어 상세</h2>
+          <button onClick={onClose} style={{ fontSize: 14, color: C.sub }}>닫기</button>
+        </div>
+
+        <div className="rounded-xl px-5 py-7" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <div className="flex items-start justify-between">
+            <span style={{ color: C.red, fontSize: 14, letterSpacing: 2 }}>
+              {"★".repeat(word.lv + 2)}{"☆".repeat(3 - word.lv)}
+            </span>
+            <button
+              onClick={() => speak(word.kanji, rate)}
+              className="flex items-center justify-center rounded-full"
+              style={{ width: 44, height: 44, backgroundColor: C.navy, color: "#fff", fontSize: 18 }}
+              aria-label="단어 발음 듣기"
+            >
+              🔊
+            </button>
+          </div>
+
+          <p className="mt-2 text-center" style={{ fontFamily: F.jp, fontSize: 44, color: C.ink }}>
+            {word.kanji}
+          </p>
+
+          {word.kana && (
+            <p className="mt-3 text-center" style={{ fontFamily: F.jp, fontSize: 26, color: C.red }}>{word.kana}</p>
+          )}
+          {word.ko && (
+            <p className="mt-3 text-center" style={{ fontSize: 20, fontWeight: 600, color: C.ink }}>{word.ko}</p>
+          )}
+
+          {(word.pos || word.mastered) && (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {word.pos && (
+                <span className="rounded-full px-3 py-1" style={{ fontSize: 12, color: C.sub, border: `1px solid ${C.line}` }}>
+                  {word.pos}
+                </span>
+              )}
+              {word.mastered && (
+                <span className="rounded-full px-3 py-1" style={{ fontSize: 12, color: "#fff", backgroundColor: C.green }}>
+                  정복
+                </span>
+              )}
+            </div>
+          )}
+
+          {word.ex ? (
+            <div className="mt-5 flex flex-col items-center gap-2 pt-4" style={{ borderTop: `1px dashed ${C.line}` }}>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span style={{ fontFamily: F.jp, fontSize: 19, color: C.ink }}>{word.ex}</span>
+                <button
+                  onClick={() => speak(word.ex, rate)}
+                  className="rounded-lg px-3 py-1"
+                  style={{ fontSize: 12, border: `1px solid ${C.line}`, color: C.sub, whiteSpace: "nowrap" }}
+                >
+                  🔊 예문
+                </button>
+              </div>
+              {word.exKo && <p style={{ fontSize: 13, color: C.sub }}>{word.exKo}</p>}
+            </div>
+          ) : (
+            <p className="mt-5 pt-4 text-center" style={{ fontSize: 13, color: C.sub, borderTop: `1px dashed ${C.line}` }}>
+              등록된 예문이 없습니다
+            </p>
+          )}
+        </div>
+
+        <p className="mt-4" style={{ fontFamily: F.mono, fontSize: 11, color: C.sub, letterSpacing: 1 }}>학습 기록</p>
+        <div className="mt-1 flex gap-2">
+          <Stat label="본 횟수" value={word.seenCount ?? 0} color={C.ink} />
+          <Stat label="알아요" value={word.knownCount ?? 0} color={C.green} />
+          <Stat label="몰라요" value={word.wrongCount ?? 0} color={C.orange} />
+        </div>
+        <p className="mt-2" style={{ fontSize: 11, color: C.sub }}>
+          등록일 {new Date(word.addedAt).toLocaleDateString("ko-KR")}
+        </p>
+
+        {confirmDelete ? (
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 rounded-md py-3"
+              style={{ fontSize: 13, color: C.sub, backgroundColor: "#fff", border: `1px solid ${C.line}` }}
+            >
+              취소
+            </button>
+            <button
+              onClick={() => { onDelete(word.id); onClose(); }}
+              className="flex-1 rounded-md py-3"
+              style={{ fontSize: 13, fontWeight: 600, color: "#fff", backgroundColor: C.danger }}
+            >
+              정말 삭제합니다
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="mt-4 w-full rounded-md py-3"
+            style={{ fontSize: 13, color: C.sub, backgroundColor: "#fff", border: `1px solid ${C.line}` }}
+          >
+            🗑 단어장에서 삭제
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div className="flex-1 rounded-lg px-3 py-3 text-center" style={{ backgroundColor: "#fff", border: `1px solid ${C.line}` }}>
+      <p style={{ fontFamily: F.mono, fontSize: 20, fontWeight: 600, color }}>{value}</p>
+      <p className="mt-1" style={{ fontSize: 11, color: C.sub }}>{label}</p>
+    </div>
+  );
+}
+
 function DictView({ words, rate, onDelete, onOpenSettings }) {
   const [q, setQ] = useState("");
+  // 목록이 바뀌어도 따라가도록 단어 자체가 아니라 id 를 들고 있습니다
+  const [openId, setOpenId] = useState(null);
   const list = useMemo(() => {
     const k = q.trim();
     const base = [...words].sort((a, b) => b.addedAt - a.addedAt);
     if (!k) return base;
     return base.filter((w) => w.kanji.includes(k) || w.kana.includes(k) || w.ko.includes(k));
   }, [words, q]);
+
+  // 삭제 등으로 사라진 단어면 시트를 열지 않습니다
+  const openWord = openId ? words.find((w) => w.id === openId) : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -1011,7 +1156,20 @@ function DictView({ words, rate, onDelete, onOpenSettings }) {
       {list.length === 0 && <Empty title="목록이 비어 있습니다" body="등록 탭에서 단어를 추가해 주세요." />}
 
       {list.map((w) => (
-        <div key={w.id} className="rounded-lg px-4 py-3" style={{ backgroundColor: "#fff", border: `1px solid ${C.line}` }}>
+        <div
+          key={w.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpenId(w.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpenId(w.id);
+            }
+          }}
+          className="rounded-lg px-4 py-3"
+          style={{ backgroundColor: "#fff", border: `1px solid ${C.line}`, cursor: "pointer" }}
+        >
           <div className="flex items-baseline justify-between">
             <span style={{ fontFamily: F.jp, fontSize: 19, color: C.ink }}>{w.kanji}</span>
             <span style={{ fontSize: 14, color: C.ink }}>{w.ko}</span>
@@ -1020,12 +1178,33 @@ function DictView({ words, rate, onDelete, onOpenSettings }) {
             <span style={{ fontFamily: F.jp, fontSize: 13, color: C.red }}>{w.kana}</span>
             <div className="flex items-center gap-3">
               {w.mastered && <span style={{ fontSize: 11, color: C.green }}>정복</span>}
-              <button onClick={() => speak(w.kanji, rate)} style={{ fontSize: 14 }} aria-label="발음 듣기">🔊</button>
-              <button onClick={() => onDelete(w.id)} style={{ fontSize: 12, color: C.sub }}>삭제</button>
+              {/* 행 클릭과 겹치지 않도록 버블링을 막습니다 */}
+              <button
+                onClick={(e) => { e.stopPropagation(); speak(w.kanji, rate); }}
+                style={{ fontSize: 14 }}
+                aria-label="발음 듣기"
+              >
+                🔊
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(w.id); }}
+                style={{ fontSize: 12, color: C.sub }}
+              >
+                삭제
+              </button>
             </div>
           </div>
         </div>
       ))}
+
+      {openWord && (
+        <WordSheet
+          word={openWord}
+          rate={rate}
+          onDelete={onDelete}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   );
 }
