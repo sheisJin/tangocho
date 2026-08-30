@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/*
+ * 색과 서체는 App.jsx 의 토큰(C, F)이 인라인 스타일로 관리합니다.
+ * 여기서는 그 토큰이 깔릴 바탕만 맞춰둡니다.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f2f1ee;
+  color: #1d2333;
+  font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* 노치 영역까지 배경이 이어지도록 */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* 단어 카드를 넘길 때 브라우저 당김 새로고침이 끼어들지 않도록 */
+body {
+  overscroll-behavior-y: contain;
+}
+
+button {
+  font-family: inherit;
+}
