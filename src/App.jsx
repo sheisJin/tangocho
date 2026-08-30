@@ -73,6 +73,50 @@ const DEFAULT_CFG = {
   masterAt: 3, // 정복 판정 기준 (알아요 누적 횟수)
 };
 
+/* ================= Claude 가져오기 프롬프트 =================
+ *
+ * 각자 자기 Claude 계정의 대화를 뒤지므로, 이 앱을 쓰는 사람마다
+ * 자기 단어만 들어옵니다. 서로 섞이지 않습니다.
+ */
+const CLAUDE_PROMPT = `내가 지금까지 너와 나눈 대화에서 일본어 단어를 모아 단어장 파일을 만들려고 해.
+아래 규칙을 지켜서 JSON만 출력해 줘.
+
+[대상]
+- 과거 대화 중 일본어 학습·번역·회화와 관련된 내용 전부
+- 최근 대화부터 찾고, 최대 50개까지
+
+[규칙]
+1. 같은 단어는 한 번만. 표기가 달라도 같은 말이면 하나로 합쳐 줘.
+2. 조사, 인사말, 사람 이름, 지명, 상품명은 빼 줘.
+3. 예문은 대화에 실제로 나왔던 문장을 우선 쓰고, 없으면 짧게 새로 만들어 줘.
+4. 대화에 있던 개인적인 내용(이름, 회사명, 일정, 고민 등)은 예문에 절대 넣지 마.
+   일반적인 문장으로 바꿔 줘.
+5. lv은 난이도. 1=기초, 2=중급, 3=고급.
+6. ko(뜻)와 exKo(예문 번역)는 한국어로 써 줘.
+
+[중요]
+과거 대화를 찾을 수 없으면 단어를 지어내지 말고,
+"과거 대화를 찾을 수 없습니다"라고 한 문장만 답해 줘.
+
+[출력 형식]
+설명, 인사말, 마크다운 코드블록(\`\`\`) 없이 아래 JSON만 출력해.
+
+{
+  "schema": "jpt-vocab/1.0",
+  "source": "claude-chat",
+  "words": [
+    {
+      "kanji": "引き継ぐ",
+      "kana": "ひきつぐ",
+      "ko": "인계하다, 이어받다",
+      "pos": "동사",
+      "lv": 2,
+      "ex": "業務を引き継ぐ。",
+      "exKo": "업무를 인계하다."
+    }
+  ]
+}`;
+
 /* ================= 유틸 ================= */
 const speak = (text, rate = 0.9) => {
   try {
@@ -993,6 +1037,8 @@ function AddView({ onAdd, existing }) {
   const [msg, setMsg] = useState("");
   const [draft, setDraft] = useState({ kanji: "", kana: "", ko: "", ex: "", exKo: "" });
   const [paste, setPaste] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   // 검토 대기 목록 — null이면 평소 화면, 배열이면 검토 화면
   const [candidates, setCandidates] = useState(null);
@@ -1037,6 +1083,17 @@ function AddView({ onAdd, existing }) {
     } finally {
       setBusy(false);
       e.target.value = "";
+    }
+  };
+
+  // 클립보드가 막힌 환경(구형 iOS, http)에서는 본문을 펼쳐 직접 고르게 합니다
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(CLAUDE_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setShowPrompt(true);
     }
   };
 
@@ -1337,21 +1394,59 @@ function AddView({ onAdd, existing }) {
 
         {mode === "claude" && (
           <>
-            <p style={{ fontSize: 14, color: C.ink }}>Claude와 나눈 일본어 대화를 붙여넣으세요</p>
-            <p className="mt-1" style={{ fontSize: 12, color: C.sub }}>
-              찾은 단어를 목록으로 보여드리고, 고른 것만 등록합니다
+            <p style={{ fontSize: 14, color: C.ink, fontWeight: 600 }}>
+              Claude가 기억하는 내 일본어 단어 가져오기
             </p>
+            <ol className="mt-2 flex flex-col gap-1" style={{ fontSize: 12, color: C.sub }}>
+              <li>1. 아래 버튼으로 프롬프트를 복사합니다</li>
+              <li>2. Claude에 붙여넣고 JSON 답변을 받습니다</li>
+              <li>3. 받은 JSON을 아래 칸에 붙여넣습니다</li>
+            </ol>
+
+            <button
+              onClick={handleCopyPrompt}
+              className="mt-3 w-full rounded-lg py-3"
+              style={{
+                backgroundColor: copied ? C.green : "#fff",
+                color: copied ? "#fff" : C.navy,
+                border: `1px solid ${copied ? C.green : C.navy}`,
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {copied ? "\u2705 복사했습니다" : "\ud83d\udccb 프롬프트 복사하기"}
+            </button>
+
+            {showPrompt && (
+              <>
+                <p className="mt-2" style={{ fontSize: 12, color: C.orange }}>
+                  자동 복사가 막힌 환경입니다. 아래 내용을 길게 눌러 직접 복사하세요.
+                </p>
+                <textarea
+                  readOnly
+                  value={CLAUDE_PROMPT}
+                  rows={8}
+                  onFocus={(e) => e.target.select()}
+                  className="mt-1 w-full rounded-md px-3 py-3"
+                  style={{ fontSize: 12, fontFamily: F.mono, border: `1px solid ${C.line}` }}
+                />
+              </>
+            )}
+
             <textarea
               value={paste}
               onChange={(e) => setPaste(e.target.value)}
               rows={6}
-              placeholder="대화 내용 붙여넣기"
+              placeholder="받은 JSON 붙여넣기 (일본어 대화 내용을 그대로 넣어도 됩니다)"
               className="mt-3 w-full rounded-md px-3 py-3"
               style={{ fontSize: 14, border: `1px solid ${C.line}` }}
             />
             <button onClick={handlePaste} className="mt-2 w-full rounded-lg py-3" style={{ backgroundColor: C.navy, color: "#fff", fontWeight: 600 }}>
               단어 뽑아내기
             </button>
+            <p className="mt-2" style={{ fontSize: 12, color: C.sub }}>
+              찾은 단어를 목록으로 보여드리고, 고른 것만 등록합니다
+            </p>
           </>
         )}
 
