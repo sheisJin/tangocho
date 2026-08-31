@@ -383,6 +383,7 @@ export default function App() {
           <DictView
             words={words}
             rate={config.speechRate}
+            onStudy={(id) => { setCurrentId(id); setTab("card"); }}
             onDelete={removeWord}
             onOpenSettings={() => setSettingsOpen(true)}
           />
@@ -984,13 +985,25 @@ function QuizView({ pool, all, onMark }) {
 /* ================= 사전 ================= */
 
 /**
+ * 외부 사전
+ *
+ * 획순·유의어·더 많은 용례는 우리가 가진 데이터로 만들 수 없습니다.
+ * 탭을 따로 두는 대신 상세 시트에서 필요할 때만 넘깁니다.
+ */
+const DICT_LINKS = [
+  { label: "네이버 일본어사전", hint: "한국어 뜻 · 예문", url: (w) => `https://ja.dict.naver.com/#/search?query=${encodeURIComponent(w)}` },
+  { label: "Weblio 国語辞典", hint: "일본어 원문 뜻풀이", url: (w) => `https://www.weblio.jp/content/${encodeURIComponent(w)}` },
+];
+
+
+/**
  * 단어 상세 시트
  *
  * 단어카드와 같은 배치(별점 · 한자 · 요미가나 · 뜻 · 예문)를 쓰되,
  * 학습 흐름을 건드리지 않도록 사전 안에서 열고 닫습니다.
  * 여기에는 카드에 없는 품사와 학습 기록도 함께 보여줍니다.
  */
-function WordSheet({ word, rate, onDelete, onClose }) {
+function WordSheet({ word, rate, onStudy, onDelete, onClose }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
@@ -1082,6 +1095,34 @@ function WordSheet({ word, rate, onDelete, onClose }) {
           등록일 {new Date(word.addedAt).toLocaleDateString("ko-KR")}
         </p>
 
+        <button
+          onClick={() => { onStudy(word.id); onClose(); }}
+          className="mt-4 w-full rounded-lg py-3"
+          style={{ backgroundColor: C.navy, color: "#fff", fontSize: 15, fontWeight: 600 }}
+        >
+          🀄 이 단어부터 공부하기
+        </button>
+
+        <p className="mt-4" style={{ fontFamily: F.mono, fontSize: 11, color: C.sub, letterSpacing: 1 }}>더 찾아보기</p>
+        <div className="mt-1 flex flex-col gap-2">
+          {DICT_LINKS.map((d) => (
+            <a
+              key={d.label}
+              href={d.url(word.kanji)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg px-4 py-3"
+              style={{ backgroundColor: "#fff", border: `1px solid ${C.line}` }}
+            >
+              <span>
+                <span style={{ fontSize: 14, color: C.ink, fontWeight: 600 }}>{d.label}</span>
+                <span className="ml-2" style={{ fontSize: 11, color: C.sub }}>{d.hint}</span>
+              </span>
+              <span style={{ fontSize: 13, color: C.sub }}>↗</span>
+            </a>
+          ))}
+        </div>
+
         {confirmDelete ? (
           <div className="mt-4 flex gap-2">
             <button
@@ -1122,7 +1163,7 @@ function Stat({ label, value, color }) {
   );
 }
 
-function DictView({ words, rate, onDelete, onOpenSettings }) {
+function DictView({ words, rate, onStudy, onDelete, onOpenSettings }) {
   const [q, setQ] = useState("");
   // 목록이 바뀌어도 따라가도록 단어 자체가 아니라 id 를 들고 있습니다
   const [openId, setOpenId] = useState(null);
@@ -1201,6 +1242,7 @@ function DictView({ words, rate, onDelete, onOpenSettings }) {
         <WordSheet
           word={openWord}
           rate={rate}
+          onStudy={onStudy}
           onDelete={onDelete}
           onClose={() => setOpenId(null)}
         />
